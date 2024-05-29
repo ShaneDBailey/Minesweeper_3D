@@ -4,16 +4,16 @@ Model::Model() {
     float size = 120;
 
     vertices = {
-        {-size + SCREEN_WIDTHM/2, -size + SCREEN_WIDTHM/2, -size + SCREEN_WIDTHM/2}, // 0
-        {-size + SCREEN_WIDTHM/2, -size + SCREEN_WIDTHM/2, size + SCREEN_WIDTHM/2},  // 1
-        {-size + SCREEN_WIDTHM/2, size + SCREEN_WIDTHM/2, -size + SCREEN_WIDTHM/2},  // 2
-        {-size + SCREEN_WIDTHM/2, size + SCREEN_WIDTHM/2, size + SCREEN_WIDTHM/2},   // 3
-        {size + SCREEN_WIDTHM/2, -size + SCREEN_WIDTHM/2, -size + SCREEN_WIDTHM/2},  // 4
-        {size + SCREEN_WIDTHM/2, -size + SCREEN_WIDTHM/2, size + SCREEN_WIDTHM/2},   // 5
-        {size + SCREEN_WIDTHM/2, size + SCREEN_WIDTHM/2, -size + SCREEN_WIDTHM/2},   // 6
-        {size + SCREEN_WIDTHM/2, size + SCREEN_WIDTHM/2, size + SCREEN_WIDTHM/2}     // 7
+        {-1, -1, -1}, // 0
+        {-1, -1, 1},  // 1
+        {-1, 1 , -1},  // 2
+        {-1, 1, 1},   // 3
+        {1, -1, -1},  // 4
+        {1, -1, 1},   // 5
+        {1, 1, -1},   // 6
+        {1, 1, 1}     // 7
     };
-
+    normalize_vertices();
     faces = {
         // Front face
         {{0, 1, 2}, {1, 0, 0}, {0, 0, 0}},
@@ -39,6 +39,25 @@ Model::Model() {
     std::cout <<  this->center_of_origin.x << ", " << this->center_of_origin.y << ", " << this->center_of_origin.z << ", " <<std::endl;
 }
 
+void Model::normalize_vertices(){
+    for(auto& vertex : this->vertices){
+        this->furthest_point = std::max(this->furthest_point, std::abs(vertex.x));
+        this->furthest_point = std::max(this->furthest_point, std::abs(vertex.y));
+        this->furthest_point = std::max(this->furthest_point, std::abs(vertex.z));
+    }
+
+    // Normalize each coordinate of the vertices
+    for(auto& vertex : this->vertices){
+        vertex.x /= this->furthest_point;
+        vertex.y /= this->furthest_point;
+        vertex.z /= this->furthest_point;
+
+        vertex.x = vertex.x*SCREEN_WIDTH/4 + SCREEN_WIDTH/2;
+        vertex.y = vertex.y*SCREEN_WIDTH/4 + SCREEN_WIDTH/2;
+        vertex.z = vertex.z*SCREEN_WIDTH/4 + SCREEN_WIDTH/2;
+    }
+}
+
 void Model::find_origin() {
     float origin_x = 0, origin_y = 0, origin_z = 0;
 
@@ -48,9 +67,9 @@ void Model::find_origin() {
         origin_z += vertex.z;
     }
     this->center_of_origin = {
-        origin_x / this->vertices.size() + SCREEN_WIDTHM/2,
-        origin_y / this->vertices.size() + SCREEN_HEIGHTM/2,
-        origin_z / this->vertices.size() + SCREEN_HEIGHTM/2
+        origin_x / this->vertices.size(),
+        origin_y / this->vertices.size(),
+        origin_z / this->vertices.size()
     };
 }
 

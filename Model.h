@@ -5,9 +5,7 @@
 #include <numeric>
 #include <cmath>
 #include <iostream>
-
-const int SCREEN_WIDTHM = 640;
-const int SCREEN_HEIGHTM = 640;
+#include "Utilities.h"
 
 struct Vector3 {
     float x, y, z;
@@ -35,10 +33,11 @@ private:
     std::vector<Face> faces;
 
     Vector3 center_of_origin;
+    float furthest_point;
 
 public:
     Model();
-
+    void normalize_vertices();
     void find_origin();
     void rotate(float x, float y, float z);
 

@@ -1,0 +1,9 @@
+change the pixels to by a map where SDL_FPoint is the key and color as the value
+
+parse obj file into model object, 
+
+color in the faces, 
+
+adher the face color as due to the lighting
+
+make lighting
