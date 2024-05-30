@@ -32,9 +32,9 @@ void Screen::draw_vertices(const Model& model) {
 }
 void Screen::draw_wireframe(const Model& model) {
     for (const auto& face : model.getFaces()) {
-        const Vector3& vertex_0 = model.getVertices()[face.vertexIndex[0]];
-        const Vector3& vertex_1 = model.getVertices()[face.vertexIndex[1]];
-        const Vector3& vertex_2 = model.getVertices()[face.vertexIndex[2]];
+        const Vector3& vertex_0 = model.getVertices()[face.vertexIndex[0] -1]; // -1 to correct 0 index
+        const Vector3& vertex_1 = model.getVertices()[face.vertexIndex[1] -1];
+        const Vector3& vertex_2 = model.getVertices()[face.vertexIndex[2] -1];
 
         draw_line(vertex_0, vertex_1);
         draw_line(vertex_1, vertex_2);

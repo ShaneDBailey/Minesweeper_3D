@@ -1,42 +1,141 @@
 #include "Model.h"
 
 Model::Model() {
-    float size = 120;
+    
+}
 
-    vertices = {
-        {-1, -1, -1}, // 0
-        {-1, -1, 1},  // 1
-        {-1, 1 , -1},  // 2
-        {-1, 1, 1},   // 3
-        {1, -1, -1},  // 4
-        {1, -1, 1},   // 5
-        {1, 1, -1},   // 6
-        {1, 1, 1}     // 7
-    };
+Model::Model(const std::string& objFilePath, const std::string& mtlFilePath) {
+    std::ifstream objFile(objFilePath);
+    if (!objFile.is_open()) {
+        std::cerr << "Failed to open OBJ file: " << objFilePath << std::endl;
+        return;
+    }
+
+    std::ifstream mtlFile(mtlFilePath);
+    if (!mtlFile.is_open()) {
+        std::cerr << "Failed to open MTL file: " << mtlFilePath << std::endl;
+        objFile.close(); // Close the OBJ file before returning
+        return;
+    }
+
+    // Parse the MTL file
+    Material currentMaterial;
+    std::string line;
+    while (std::getline(mtlFile, line)) {
+        std::istringstream iss(line);
+        std::string token;
+        iss >> token;
+        if (token == "newmtl") {
+            if (!currentMaterial.name.empty()) {
+                materials.push_back(currentMaterial);
+            }
+            currentMaterial = Material();
+            iss >> currentMaterial.name;
+        } else if (token == "Kd") {
+            float r, g, b;
+            iss >> r >> g >> b;
+            currentMaterial.diffuseColor = Color{r, g, b, 1.0f}; // Assuming full opacity
+        } else if (token == "Ka") {
+            float r, g, b;
+            iss >> r >> g >> b;
+            currentMaterial.ambientColor = Color{r, g, b, 1.0f}; // Assuming full opacity
+        } else if (token == "Ks") {
+            float r, g, b;
+            iss >> r >> g >> b;
+            currentMaterial.specularColor = Color{r, g, b, 1.0f}; // Assuming full opacity
+        } else if (token == "Ke") {
+            float r, g, b;
+            iss >> r >> g >> b;
+            currentMaterial.emissiveColor = Color{r, g, b, 1.0f}; // Assuming full opacity
+        } else if (token == "Ns") {
+            iss >> currentMaterial.specularExponent;
+        } else if (token == "Ni") {
+            iss >> currentMaterial.opticalDensity;
+        } else if (token == "d") {
+            iss >> currentMaterial.dissolveFactor;
+        } else if (token == "illum") {
+            iss >> currentMaterial.illuminationModel;
+        } // Add more properties as needed
+    }
+    if (!currentMaterial.name.empty()) {
+        materials.push_back(currentMaterial);
+    }
+    mtlFile.close();
+
+    // Parse the OBJ file
+    Material* currentMaterialPtr = nullptr; // Pointer to the current material
+    while (std::getline(objFile, line)) {
+        std::istringstream iss(line);
+        std::string token;
+        iss >> token;
+        if (token == "usemtl") {
+            std::string materialName;
+            iss >> materialName;
+            // Find the material with the specified name
+            for (auto& mat : materials) {
+                if (mat.name == materialName) {
+                    currentMaterialPtr = &mat; // Set the pointer to the current material
+                    break;
+                }
+            }
+        } else if (token == "v") {
+            Vector3 vertex;
+            iss >> vertex.x >> vertex.y >> vertex.z;
+            vertices.push_back(vertex);
+        } else if (token == "vt") {
+            Vertex_Texture texture;
+            iss >> texture.start >> texture.end;
+            textures.push_back(texture);
+        } else if (token == "vn") {
+            Vertex_Normal normal;
+            iss >> normal.x >> normal.y >> normal.z;
+            normals.push_back(normal);
+        } else if (token == "f") {
+            if (!currentMaterialPtr) {
+                std::cerr << "No material specified for face. Skipping." << std::endl;
+                continue;
+            }
+
+            // Temporary vectors to store indices
+            std::vector<int> temp_vertex_indexes;
+            std::vector<int> temp_texture_indexes;
+            std::vector<int> temp_normal_indexes;
+
+            char separator;
+            int vertexIndex, textureIndex, normalIndex;
+
+            while (iss >> vertexIndex >> separator >> textureIndex >> separator >> normalIndex) {
+                temp_vertex_indexes.push_back(vertexIndex);
+                temp_texture_indexes.push_back(textureIndex);
+                temp_normal_indexes.push_back(normalIndex);
+            }
+
+            // Create a new face for each vertex index
+            if (!temp_vertex_indexes.empty()) {
+                int numVertices = temp_vertex_indexes.size();
+                for (int i = 2; i < numVertices; ++i) {
+                    Face face(*currentMaterialPtr);
+                    face.vertexIndex[0] = temp_vertex_indexes[0];
+                    face.textureIndex[0] = temp_texture_indexes[0];
+                    face.normalIndex[0] = temp_normal_indexes[0];
+
+                    face.vertexIndex[1] = temp_vertex_indexes[i - 1];
+                    face.textureIndex[1] = temp_texture_indexes[i - 1];
+                    face.normalIndex[1] = temp_normal_indexes[i - 1];
+                    
+                    face.vertexIndex[2] = temp_vertex_indexes[i];
+                    face.textureIndex[2] = temp_texture_indexes[i];
+                    face.normalIndex[2] = temp_normal_indexes[i];
+                    faces.push_back(face);
+                }
+            }
+        }
+
+    }
+    objFile.close();
+
     normalize_vertices();
-    faces = {
-        // Front face
-        {{0, 1, 2}, {1, 0, 0}, {0, 0, 0}},
-        {{1, 3, 2}, {0, 0, 0}, {0, 0, 0}},
-        // Back face
-        {{4, 5, 6}, {0, 0, 0}, {0, 0, 0}},
-        {{5, 7, 6}, {0, 0, 0}, {0, 0, 0}},
-        // Left face
-        {{0, 4, 2}, {0, 0, 0}, {0, 0, 0}},
-        {{4, 6, 2}, {0, 0, 0}, {0, 0, 0}},
-        // Right face
-        {{1, 5, 3}, {0, 0, 0}, {0, 0, 0}},
-        {{5, 7, 3}, {0, 0, 0}, {0, 0, 0}},
-        // Top face
-        {{2, 3, 6}, {0, 0, 0}, {0, 0, 0}},
-        {{3, 7, 6}, {0, 0, 0}, {0, 0, 0}},
-        // Bottom face
-        {{0, 1, 4}, {0, 0, 0}, {0, 0, 0}},
-        {{1, 5, 4}, {0, 0, 0}, {0, 0, 0}}
-    };
-
     find_origin();
-    std::cout <<  this->center_of_origin.x << ", " << this->center_of_origin.y << ", " << this->center_of_origin.z << ", " <<std::endl;
 }
 
 void Model::normalize_vertices(){
@@ -45,6 +144,7 @@ void Model::normalize_vertices(){
         this->furthest_point = std::max(this->furthest_point, std::abs(vertex.y));
         this->furthest_point = std::max(this->furthest_point, std::abs(vertex.z));
     }
+    std::cout << this->furthest_point << "furthest point" << std::endl;
 
     // Normalize each coordinate of the vertices
     for(auto& vertex : this->vertices){
@@ -102,22 +202,12 @@ void Model::rotate(float x, float y, float z){
     }
 }
 
-const std::vector<Vector3>& Model::getVertices() const {
-    return vertices;
-}
+const std::vector<Vector3>& Model::getVertices() const { return vertices; }
 
-const std::vector<Vertex_Texture>& Model::getTextures() const {
-    return textures;
-}
+const std::vector<Vertex_Texture>& Model::getTextures() const { return textures; }
 
-const std::vector<Vertex_Normal>& Model::getNormals() const {
-    return normals;
-}
+const std::vector<Vertex_Normal>& Model::getNormals() const { return normals;}
 
-const std::vector<Face>& Model::getFaces() const {
-    return faces;
-}
+const std::vector<Face>& Model::getFaces() const { return faces;}
 
-const Vector3& Model::getCenterOfOrigin() const {
-    return center_of_origin;
-}
+const Vector3& Model::getCenterOfOrigin() const { return center_of_origin; }

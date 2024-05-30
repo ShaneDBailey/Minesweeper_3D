@@ -4,11 +4,13 @@
 int main(){
 
     Screen screen;
-    Model model;
-    
+    std::string object_path = "./assets/test.obj";
+    std::string material_path = "./assets/test.mtl";
+    Model model(object_path,material_path);
+    std::cout << "Object debug" << model.getVertices().size() << std::endl;
     while(true){
         screen.clear_display();
-        model.rotate(0.002,0.001,0.003);
+        model.rotate(0.02,0.01,0.03);
         screen.draw_wireframe(model);
         screen.display();
         screen.input();
