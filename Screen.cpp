@@ -12,6 +12,21 @@ Screen::~Screen() {
     SDL_Quit();
 }
 
+void Screen::clear_display() {
+    SDL_SetRenderDrawColor(renderer, 115,155,155, 255);
+    SDL_RenderClear(renderer);
+}
+
+void Screen::input() {
+    while(SDL_PollEvent(&event)) {
+        if(event.type == SDL_QUIT) {
+            SDL_Quit();
+            exit(0);
+        }
+    }
+}
+
+//---------------------------------------draw_vertices------------------------
 void Screen::draw_vertices(const Model& model) {
 
     for (const auto& face : model.getFaces()) {
@@ -26,6 +41,7 @@ void Screen::draw_vertices(const Model& model) {
         SDL_RenderDrawPointF(renderer,vertex_2.x, vertex_2.y);
     }
 }
+//---------------------------------------draw_wireframe------------------------
 void Screen::draw_wireframe(const Model& model) {
     for (const auto& face : model.getFaces()) {
         const Vector3& vertex_0 = model.getVertices()[face.vertexIndex[0] -1]; // -1 to correct 0
@@ -40,68 +56,6 @@ void Screen::draw_wireframe(const Model& model) {
     }
 }
 
-void Screen::draw_face(const Model& model) {
-    // Iterate over each face
-    for (const auto& face : model.getFaces()) {
-        // Retrieve the vertices of the face
-        const Vector3& vertex_0 = model.getVertices()[face.vertexIndex[0] -1]; // -1 to correct 0
-        const Vector3& vertex_1 = model.getVertices()[face.vertexIndex[1] -1];
-        const Vector3& vertex_2 = model.getVertices()[face.vertexIndex[2] -1];
-
-        Color& color = face.face_material.diffuseColor;
-        SDL_SetRenderDrawColor(renderer, color.r * 255, color.g * 255, color.b * 255, color.a * 255);
-        
-        Vector3 top = vertex_0, middle = vertex_1, bottom = vertex_2;
-        if (top.y > middle.y) std::swap(top, middle);
-        if (top.y > bottom.y) std::swap(top, bottom);
-        if (middle.y > bottom.y) std::swap(middle, bottom);
-
-        float slope_top_middle = (middle.x - top.x) / (middle.y - top.y);
-        float slope_top_bottom = (bottom.x - top.x) / (bottom.y - top.y);
-        float slope_middle_bottom = (bottom.x - middle.x) / (bottom.y - middle.y);
-
-        float left_x = bottom.x;
-        float right_x = bottom.x;
-
-        for(float height = bottom.y; height >= middle.y; height-- ){
-            if(height >= middle.y){
-                draw_horizontal_line(left_x, right_x, height);
-                left_x -= slope_middle_bottom;
-                right_x -= slope_top_bottom;
-            }
-        }
-
-        left_x = top.x;
-        right_x = top.x;
-
-        for(float height = top.y; height <= middle.y; height++ ){
-            if(height <= middle.y){
-                draw_horizontal_line(left_x, right_x, height);
-                left_x += slope_top_middle;
-                right_x += slope_top_bottom;
-            }
-        }
-
-        
-    }
-}
-
-
-void Screen::draw_horizontal_line(float left_x, float right_x, float height){
-    if(left_x > right_x){
-        float temp = left_x;
-        left_x = right_x;
-        right_x = temp;
-    }
-    if(left_x >= 0 && left_x < 680 && right_x > 0 && right_x < 680){
-        for(float start = left_x; start <= right_x; start++){
-            SDL_RenderDrawPointF(renderer,start, height);
-        }
-    }else{
-        std::cout << left_x << "  " << right_x << std::endl;
-    }
-
-}
 void Screen::draw_line(const Vector3& start, const Vector3& end) {
     // Bresenham's line algorithm
     int start_x = static_cast<int>(start.x);
@@ -127,17 +81,35 @@ void Screen::draw_line(const Vector3& start, const Vector3& end) {
         if (twice_deviation < abs_distance_x) { deviation_from_line += abs_distance_x; start_y += direction_y; }
     }
 }
+//---------------------------------------draw_triangles------------------------
+void Screen::draw_face_rasterization(const Model& model) { 
+    for (const auto& face : model.getFaces()) { 
+        const Vector3& v0 = model.getVertices()[face.vertexIndex[0] - 1]; 
+        const Vector3& v1 = model.getVertices()[face.vertexIndex[1] - 1]; 
+        const Vector3& v2 = model.getVertices()[face.vertexIndex[2] - 1]; 
 
-void Screen::clear_display() {
-    SDL_SetRenderDrawColor(renderer, 115,155,155, 255);
-    SDL_RenderClear(renderer);
-}
+        Color& color = face.face_material.diffuseColor; 
+        SDL_SetRenderDrawColor(renderer, color.r * 255, color.g * 255, color.b * 255, color.a * 255); 
 
-void Screen::input() {
-    while(SDL_PollEvent(&event)) {
-        if(event.type == SDL_QUIT) {
-            SDL_Quit();
-            exit(0);
+        int min_x = std::min({v0.x, v1.x, v2.x}); 
+        int min_y = std::min({v0.y, v1.y, v2.y}); 
+        int max_x = std::max({v0.x, v1.x, v2.x}); 
+        int max_y = std::max({v0.y, v1.y, v2.y}); 
+
+        for (int y = min_y; y <= max_y; ++y) { 
+            for (int x = min_x; x <= max_x; ++x) { 
+                if (is_point_inside_triangle(x, y, v0, v1, v2)) { 
+                    SDL_RenderDrawPointF(renderer, x, y); 
+                } 
+            }
         }
-    }
+    } 
+} 
+
+bool Screen::is_point_inside_triangle(int x, int y, const Vector3& v0, const Vector3& v1, const Vector3& v2) { 
+    //barycentric coordinates:: found on internet somewhere
+    float alpha = ((v1.y - v2.y) * (x - v2.x) + (v2.x - v1.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
+    float beta = ((v2.y - v0.y) * (x - v2.x) + (v0.x - v2.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
+    float gamma = 1.0f - alpha - beta;
+    return alpha > 0 && beta > 0 && gamma > 0; 
 }
