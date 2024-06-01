@@ -144,7 +144,6 @@ void Model::normalize_vertices(){
         this->furthest_point = std::max(this->furthest_point, std::abs(vertex.y));
         this->furthest_point = std::max(this->furthest_point, std::abs(vertex.z));
     }
-    std::cout << this->furthest_point << "furthest point" << std::endl;
 
     // Normalize each coordinate of the vertices
     for(auto& vertex : this->vertices){
