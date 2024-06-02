@@ -113,3 +113,81 @@ bool Screen::is_point_inside_triangle(int x, int y, const Vector3& v0, const Vec
     float gamma = 1.0f - alpha - beta;
     return alpha > 0 && beta > 0 && gamma > 0; 
 }
+
+
+//---------------------------------draw_triangles_flat_shading--------------------
+
+void Screen::draw_face_rainbow(const Model& model) {
+    for (const auto& face : model.getFaces()) {
+        const Vector3& v0 = model.getVertices()[face.vertexIndex[0] - 1];
+        const Vector3& v1 = model.getVertices()[face.vertexIndex[1] - 1];
+        const Vector3& v2 = model.getVertices()[face.vertexIndex[2] - 1];
+
+        const Vector3& face_normal = model.getNormals()[face.normalIndex[0] - 1];
+        Color color;
+        color.r = (face_normal.x + 1.0) * 0.5 * 255;
+        color.g = (face_normal.y + 1.0) * 0.5 * 255;
+        color.b = (face_normal.z + 1.0) * 0.5 * 255;
+        color.a = 255;
+
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+
+        int min_x = std::min({v0.x, v1.x, v2.x});
+        int min_y = std::min({v0.y, v1.y, v2.y});
+        int max_x = std::max({v0.x, v1.x, v2.x});
+        int max_y = std::max({v0.y, v1.y, v2.y});
+
+        for (int y = min_y; y <= max_y; ++y) {
+            for (int x = min_x; x <= max_x; ++x) {
+                if (is_point_inside_triangle(x, y, v0, v1, v2)) {
+                    SDL_RenderDrawPointF(renderer, x, y);
+                }
+            }
+        }
+    }
+}
+
+
+Vector3 light_direction{0.0, 2.0, 2.0}; 
+
+void Screen::draw_face_flat_shading(const Model& model) {
+    for (const auto& face : model.getFaces()) {
+        const Vector3& v0 = model.getVertices()[face.vertexIndex[0] - 1];
+        const Vector3& v1 = model.getVertices()[face.vertexIndex[1] - 1];
+        const Vector3& v2 = model.getVertices()[face.vertexIndex[2] - 1];
+
+        const Vector3& face_normal = model.getNormals()[face.normalIndex[0] - 1];
+
+        float brightness = dot_product(face_normal, light_direction);
+        if (brightness < 0.0){
+            brightness = 0.0;
+        } 
+
+        Color color = face.face_material.diffuseColor;
+        std::cout<< color.r << std::endl;
+        color.r *= brightness * 255;
+        color.g *= brightness * 255;
+        color.b *= brightness * 255;
+        std::cout<< color.r << std::endl;
+
+
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+
+        int min_x = std::min({v0.x, v1.x, v2.x});
+        int min_y = std::min({v0.y, v1.y, v2.y});
+        int max_x = std::max({v0.x, v1.x, v2.x});
+        int max_y = std::max({v0.y, v1.y, v2.y});
+
+        for (int y = min_y; y <= max_y; ++y) {
+            for (int x = min_x; x <= max_x; ++x) {
+                if (is_point_inside_triangle(x, y, v0, v1, v2)) {
+                    SDL_RenderDrawPointF(renderer, x, y);
+                }
+            }
+        }
+    }
+}
+
+float dot_product(const Vector3& v1, const Vector3& v2) {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}

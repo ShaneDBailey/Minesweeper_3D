@@ -11,9 +11,9 @@ int main(){
     while(true){
         screen.clear_display();
         model.rotate(0.002,0.001,0.003);
-        //screen.draw_face(model);
-        screen.draw_face_rasterization(model);
         //screen.draw_wireframe(model);
+        //screen.draw_face_rasterization(model);
+        screen.draw_face_flat_shading(model);
         SDL_RenderPresent(screen.renderer);
         screen.input();
         //SDL_Delay(30);

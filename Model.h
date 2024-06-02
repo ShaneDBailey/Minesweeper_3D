@@ -49,7 +49,7 @@ class Model {
 private:
     std::vector<Vector3> vertices;
     std::vector<Vertex_Texture> textures;
-    std::vector<Vertex_Normal> normals;
+    std::vector<Vector3> normals;
     std::vector<Material> materials;
     std::vector<Face> faces;
 
@@ -65,7 +65,7 @@ public:
 
     const std::vector<Vector3>& getVertices() const;
     const std::vector<Vertex_Texture>& getTextures() const;
-    const std::vector<Vertex_Normal>& getNormals() const;
+    const std::vector<Vector3>& getNormals() const;
     const std::vector<Face>& getFaces() const;
     const Vector3& getCenterOfOrigin() const;
 };

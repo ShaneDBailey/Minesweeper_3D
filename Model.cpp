@@ -87,7 +87,7 @@ Model::Model(const std::string& objFilePath, const std::string& mtlFilePath) {
             iss >> texture.start >> texture.end;
             textures.push_back(texture);
         } else if (token == "vn") {
-            Vertex_Normal normal;
+            Vector3 normal;
             iss >> normal.x >> normal.y >> normal.z;
             normals.push_back(normal);
         } else if (token == "f") {
@@ -205,7 +205,7 @@ const std::vector<Vector3>& Model::getVertices() const { return vertices; }
 
 const std::vector<Vertex_Texture>& Model::getTextures() const { return textures; }
 
-const std::vector<Vertex_Normal>& Model::getNormals() const { return normals;}
+const std::vector<Vector3>& Model::getNormals() const { return normals;}
 
 const std::vector<Face>& Model::getFaces() const { return faces;}
 
