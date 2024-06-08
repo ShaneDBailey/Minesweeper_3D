@@ -4,6 +4,11 @@
 Screen::Screen() {
     SDL_Init(SDL_INIT_VIDEO);
     SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
+    for (int i = 0; i < SCREEN_WIDTH; ++i) {
+        for (int j = 0; j < SCREEN_HEIGHT; ++j) {
+            zBuffer[i][j] = std::numeric_limits<float>::min();
+        }
+    }
 }
 
 Screen::~Screen() {
@@ -15,6 +20,11 @@ Screen::~Screen() {
 void Screen::clear_display() {
     SDL_SetRenderDrawColor(renderer, 115,155,155, 255);
     SDL_RenderClear(renderer);
+    for (int i = 0; i < SCREEN_WIDTH; ++i) {
+        for (int j = 0; j < SCREEN_HEIGHT; ++j) {
+            zBuffer[i][j] = std::numeric_limits<float>::min();
+        }
+    }
 }
 
 void Screen::input() {
@@ -26,6 +36,17 @@ void Screen::input() {
     }
 }
 
+bool is_point_inside_triangle(int x, int y, const Vector3& v0, const Vector3& v1, const Vector3& v2) { 
+    //barycentric coordinates:: found on internet somewhere
+    float alpha = ((v1.y - v2.y) * (x - v2.x) + (v2.x - v1.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
+    float beta = ((v2.y - v0.y) * (x - v2.x) + (v0.x - v2.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
+    float gamma = 1.0f - alpha - beta;
+    return alpha > 0 && beta > 0 && gamma > 0; 
+}
+
+float dot_product(const Vector3& v1, const Vector3& v2) {
+    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+}
 //---------------------------------------draw_vertices------------------------
 void Screen::draw_vertices(const Model& model) {
 
@@ -106,15 +127,6 @@ void Screen::draw_face_rasterization(const Model& model) {
     } 
 } 
 
-bool Screen::is_point_inside_triangle(int x, int y, const Vector3& v0, const Vector3& v1, const Vector3& v2) { 
-    //barycentric coordinates:: found on internet somewhere
-    float alpha = ((v1.y - v2.y) * (x - v2.x) + (v2.x - v1.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
-    float beta = ((v2.y - v0.y) * (x - v2.x) + (v0.x - v2.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
-    float gamma = 1.0f - alpha - beta;
-    return alpha > 0 && beta > 0 && gamma > 0; 
-}
-
-
 //---------------------------------draw_triangles_flat_shading--------------------
 
 void Screen::draw_face_rainbow(const Model& model) {
@@ -140,6 +152,7 @@ void Screen::draw_face_rainbow(const Model& model) {
         for (int y = min_y; y <= max_y; ++y) {
             for (int x = min_x; x <= max_x; ++x) {
                 if (is_point_inside_triangle(x, y, v0, v1, v2)) {
+                    float z = barycentric_interpolation(x, y, v0, v1, v2);
                     SDL_RenderDrawPointF(renderer, x, y);
                 }
             }
@@ -148,9 +161,19 @@ void Screen::draw_face_rainbow(const Model& model) {
 }
 
 
-Vector3 light_direction{0.0, 2.0, 2.0}; 
+Vector3 light_direction{-1, 0, 1}; //must be between -1 and 1
 
 void Screen::draw_face_flat_shading(const Model& model) {
+    // Normalize the light direction
+    float length = std::sqrt(light_direction.x * light_direction.x +
+                             light_direction.y * light_direction.y +
+                             light_direction.z * light_direction.z);
+    Vector3 normalized_light_direction = {
+        light_direction.x / length,
+        light_direction.y / length,
+        light_direction.z / length
+    };
+
     for (const auto& face : model.getFaces()) {
         const Vector3& v0 = model.getVertices()[face.vertexIndex[0] - 1];
         const Vector3& v1 = model.getVertices()[face.vertexIndex[1] - 1];
@@ -158,36 +181,40 @@ void Screen::draw_face_flat_shading(const Model& model) {
 
         const Vector3& face_normal = model.getNormals()[face.normalIndex[0] - 1];
 
-        float brightness = dot_product(face_normal, light_direction);
-        if (brightness < 0.0){
-            brightness = 0.0;
-        } 
+        float brightness = dot_product(normalized_light_direction, face_normal);
+        brightness = std::max(0.0f, brightness);  
 
         Color color = face.face_material.diffuseColor;
-        std::cout<< color.r << std::endl;
-        color.r *= brightness * 255;
-        color.g *= brightness * 255;
-        color.b *= brightness * 255;
-        std::cout<< color.r << std::endl;
+        color.r *= brightness;
+        color.g *= brightness;
+        color.b *= brightness;
 
+        SDL_SetRenderDrawColor(renderer, color.r * 255, color.g * 255, color.b * 255, color.a * 255);
 
-        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-
-        int min_x = std::min({v0.x, v1.x, v2.x});
-        int min_y = std::min({v0.y, v1.y, v2.y});
-        int max_x = std::max({v0.x, v1.x, v2.x});
-        int max_y = std::max({v0.y, v1.y, v2.y});
+        int min_x = std::max(0, std::min(static_cast<int>(std::min(v0.x, std::min(v1.x, v2.x))), SCREEN_WIDTH - 1));
+        int min_y = std::max(0, std::min(static_cast<int>(std::min(v0.y, std::min(v1.y, v2.y))), SCREEN_HEIGHT - 1));
+        int max_x = std::min(SCREEN_WIDTH - 1, std::max(static_cast<int>(std::max(v0.x, std::max(v1.x, v2.x))), 0));
+        int max_y = std::min(SCREEN_HEIGHT - 1, std::max(static_cast<int>(std::max(v0.y, std::max(v1.y, v2.y))), 0));
 
         for (int y = min_y; y <= max_y; ++y) {
             for (int x = min_x; x <= max_x; ++x) {
                 if (is_point_inside_triangle(x, y, v0, v1, v2)) {
-                    SDL_RenderDrawPointF(renderer, x, y);
+                    float z = barycentric_interpolation(x, y, v0, v1, v2);
+                    if (z > zBuffer[x][y]) {
+                        zBuffer[x][y] = z;
+                        SDL_RenderDrawPointF(renderer, x, y);
+                    }
                 }
             }
         }
     }
 }
 
-float dot_product(const Vector3& v1, const Vector3& v2) {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+
+
+float barycentric_interpolation(int x, int y, const Vector3& v0, const Vector3& v1, const Vector3& v2) {
+    float alpha = ((v1.y - v2.y) * (x - v2.x) + (v2.x - v1.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
+    float beta = ((v2.y - v0.y) * (x - v2.x) + (v0.x - v2.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
+    float gamma = 1.0f - alpha - beta;
+    return alpha * v0.z + beta * v1.z + gamma * v2.z;
 }

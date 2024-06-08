@@ -199,6 +199,23 @@ void Model::rotate(float x, float y, float z){
         vertex.y += this->center_of_origin.y;
         vertex.z += this->center_of_origin.z;
     }
+
+    for(auto& normal : this->normals){
+        // X rotation
+        float temp_y = normal.y;
+        normal.y = std::cos(x) * normal.y - std::sin(x) * normal.z;
+        normal.z = std::sin(x) * temp_y + std::cos(x) * normal.z;
+
+        // Y rotation
+        float temp_x = normal.x;
+        normal.x = std::cos(y) * normal.x + std::sin(y) * normal.z;
+        normal.z = -std::sin(y) * temp_x + std::cos(y) * normal.z;
+
+        // Z rotation
+        temp_x = normal.x;
+        normal.x = std::cos(z) * normal.x - std::sin(z) * normal.y;
+        normal.y = std::sin(z) * temp_x + std::cos(z) * normal.y;
+    }
 }
 
 const std::vector<Vector3>& Model::getVertices() const { return vertices; }
