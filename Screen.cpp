@@ -203,8 +203,7 @@ void Screen::draw_face_flat_shading(const Model& model) {
 //n speculareExponent
 void Screen::draw_face_phong_shading(const Model& model) {
     Vector3 light_direction{-1, 0, 1}; // Light direction vector
-    float length = std::sqrt(light_direction.x * light_direction.x + light_direction.y * light_direction.y + light_direction.z * light_direction.z);
-    light_direction = {light_direction.x / length, light_direction.y / length, light_direction.z / length};
+    light_direction = normalize(light_direction);
 
     Vector3 view_direction{0, 0, 1}; // Assuming the viewer is looking along the z-axis
     view_direction = normalize(view_direction);
@@ -233,13 +232,17 @@ void Screen::draw_face_phong_shading(const Model& model) {
                     if (z > zBuffer[x][y]) {
                         zBuffer[x][y] = z;
                         Vector3 point = {x,y,z};
-                        Vector3 L = light_direction - point;
-                        Vector3 V = view_direction - point;
+                        Vector3 L = normalize(light_direction - point);//mihgt need to make light no normalized
+                        Vector3 V = normalize(view_direction - point);
+                        float NdotL = dot_product(face_normal, L);
+                        float NdotH = dot_product(face_normal, (L + V) / 2);
                         Color Final{
-                            diffuse_color.r * dot_product(face_normal,L) + specular_color.r * std::pow(dot_product(N,(L + V/2)),shininess);
-                            diffuse_color.g * dot_product(face_normal,L) + specular_color.g * std::pow(dot_product(N,(L + V/2)),shininess);
-                            diffuse_color.b * dot_product(face_normal,L) + specular_color.b * std::pow(dot_product(N,(L + V/2)),shininess);
+                            diffuse_color.r * NdotL + specular_color.r * std::pow(NdotH, shininess),
+                            diffuse_color.g * NdotL + specular_color.g * std::pow(NdotH, shininess),
+                            diffuse_color.b * NdotL + specular_color.b * std::pow(NdotH, shininess),
+                            1.0f
                         };
+                        SDL_SetRenderDrawColor(renderer, Final.r, Final.g, Final.b, 255);
                         SDL_RenderDrawPointF(renderer, x, y);
                     }
                 }

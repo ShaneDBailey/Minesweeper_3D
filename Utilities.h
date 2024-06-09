@@ -16,6 +16,20 @@ struct Vector3 {
     Vector3 operator+() const {
         return {x, y, z};
     }
+    Vector3 operator+(const Vector3& other) const {
+        return {x + other.x, y + other.y, z + other.z};
+    }
+    Vector3 operator/(float scalar) const {
+        // Avoid division by zero
+        if (scalar != 0) {
+            float invScalar = 1.0f / scalar;
+            return {x * invScalar, y * invScalar, z * invScalar};
+        } else {
+            // Handle division by zero gracefully
+            // You might want to log an error or throw an exception here
+            return {0, 0, 0};
+        }
+    }
 };
 
 struct Color {
