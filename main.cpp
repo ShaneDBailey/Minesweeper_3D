@@ -13,7 +13,7 @@ int main(){
         model.rotate(0.002,0.001,0.003);
         //screen.draw_wireframe(model);
         //screen.draw_face_rasterization(model);
-        screen.draw_face_flat_shading(model);
+        screen.draw_face_phong_shading(model);
         SDL_RenderPresent(screen.renderer);
         screen.input();
         //SDL_Delay(30);

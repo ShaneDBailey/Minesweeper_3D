@@ -33,6 +33,7 @@ public:
     void draw_face(const Model& model);
     void draw_line(const Vector3& start, const Vector3& end);
     void draw_face_flat_shading(const Model& model);
+    void draw_face_phong_shading(const Model& model);
     
     void clear_display();
     void input();

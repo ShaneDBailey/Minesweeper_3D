@@ -11,17 +11,11 @@
 #include <iostream>
 #include <string>
 
-struct Vector3 {
-    float x, y, z;
-};
 
 struct Vertex_Texture {
     float start, end;
 };
 
-struct Vertex_Normal {
-    float x, y, z;
-};
 
 struct Material{
     std::string name;

@@ -36,17 +36,7 @@ void Screen::input() {
     }
 }
 
-bool is_point_inside_triangle(int x, int y, const Vector3& v0, const Vector3& v1, const Vector3& v2) { 
-    //barycentric coordinates:: found on internet somewhere
-    float alpha = ((v1.y - v2.y) * (x - v2.x) + (v2.x - v1.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
-    float beta = ((v2.y - v0.y) * (x - v2.x) + (v0.x - v2.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
-    float gamma = 1.0f - alpha - beta;
-    return alpha > 0 && beta > 0 && gamma > 0; 
-}
 
-float dot_product(const Vector3& v1, const Vector3& v2) {
-    return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
-}
 //---------------------------------------draw_vertices------------------------
 void Screen::draw_vertices(const Model& model) {
 
@@ -161,18 +151,11 @@ void Screen::draw_face_rainbow(const Model& model) {
 }
 
 
-Vector3 light_direction{-1, 0, 1}; //must be between -1 and 1
 
 void Screen::draw_face_flat_shading(const Model& model) {
-    // Normalize the light direction
-    float length = std::sqrt(light_direction.x * light_direction.x +
-                             light_direction.y * light_direction.y +
-                             light_direction.z * light_direction.z);
-    Vector3 normalized_light_direction = {
-        light_direction.x / length,
-        light_direction.y / length,
-        light_direction.z / length
-    };
+    Vector3 light_direction{-1, 0, 1}; //must be between -1 and 1
+    float length = std::sqrt(light_direction.x * light_direction.x + light_direction.y * light_direction.y + light_direction.z * light_direction.z);
+    light_direction = normalize(light_direction);
 
     for (const auto& face : model.getFaces()) {
         const Vector3& v0 = model.getVertices()[face.vertexIndex[0] - 1];
@@ -181,7 +164,7 @@ void Screen::draw_face_flat_shading(const Model& model) {
 
         const Vector3& face_normal = model.getNormals()[face.normalIndex[0] - 1];
 
-        float brightness = dot_product(normalized_light_direction, face_normal);
+        float brightness = dot_product(light_direction, face_normal);
         brightness = std::max(0.0f, brightness);  
 
         Color color = face.face_material.diffuseColor;
@@ -210,11 +193,58 @@ void Screen::draw_face_flat_shading(const Model& model) {
     }
 }
 
+// Ka + Kd * (N dot L) + Ks * (N dot ( L + V / 2))^n
+//Ka ambient light color values
+//Kd diffuse light color values
+//Ks specular light color value
+//N face normal
+//L vector direction from point to light source
+//V vector direction from point to view source
+//n speculareExponent
+void Screen::draw_face_phong_shading(const Model& model) {
+    Vector3 light_direction{-1, 0, 1}; // Light direction vector
+    float length = std::sqrt(light_direction.x * light_direction.x + light_direction.y * light_direction.y + light_direction.z * light_direction.z);
+    light_direction = {light_direction.x / length, light_direction.y / length, light_direction.z / length};
 
+    Vector3 view_direction{0, 0, 1}; // Assuming the viewer is looking along the z-axis
+    view_direction = normalize(view_direction);
+    for (const auto& face : model.getFaces()) {
+        const Vector3& v0 = model.getVertices()[face.vertexIndex[0] - 1];
+        const Vector3& v1 = model.getVertices()[face.vertexIndex[1] - 1];
+        const Vector3& v2 = model.getVertices()[face.vertexIndex[2] - 1];
 
-float barycentric_interpolation(int x, int y, const Vector3& v0, const Vector3& v1, const Vector3& v2) {
-    float alpha = ((v1.y - v2.y) * (x - v2.x) + (v2.x - v1.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
-    float beta = ((v2.y - v0.y) * (x - v2.x) + (v0.x - v2.x) * (y - v2.y)) / ((v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)); 
-    float gamma = 1.0f - alpha - beta;
-    return alpha * v0.z + beta * v1.z + gamma * v2.z;
+        // Assuming the same normal for the entire face (flat shading)
+        const Vector3& face_normal = model.getNormals()[face.normalIndex[0] - 1];
+
+        Color ambient_color = face.face_material.ambientColor;
+        Color diffuse_color = face.face_material.diffuseColor;//kd
+        Color specular_color = face.face_material.specularColor;//ks
+        float shininess = face.face_material.specularExponent;//n
+
+        int min_x = std::max(0, std::min(static_cast<int>(std::min(v0.x, std::min(v1.x, v2.x))), SCREEN_WIDTH - 1));
+        int min_y = std::max(0, std::min(static_cast<int>(std::min(v0.y, std::min(v1.y, v2.y))), SCREEN_HEIGHT - 1));
+        int max_x = std::min(SCREEN_WIDTH - 1, std::max(static_cast<int>(std::max(v0.x, std::max(v1.x, v2.x))), 0));
+        int max_y = std::min(SCREEN_HEIGHT - 1, std::max(static_cast<int>(std::max(v0.y, std::max(v1.y, v2.y))), 0));
+        // Ka + Kd * (N dot L) + Ks * (N dot ( L + V / 2))^n
+        for (int y = min_y; y <= max_y; ++y) {
+            for (int x = min_x; x <= max_x; ++x) {
+                if (is_point_inside_triangle(x, y, v0, v1, v2)) {
+                    float z = barycentric_interpolation(x, y, v0, v1, v2);
+                    if (z > zBuffer[x][y]) {
+                        zBuffer[x][y] = z;
+                        Vector3 point = {x,y,z};
+                        Vector3 L = light_direction - point;
+                        Vector3 V = view_direction - point;
+                        Color Final{
+                            diffuse_color.r * dot_product(face_normal,L) + specular_color.r * std::pow(dot_product(N,(L + V/2)),shininess);
+                            diffuse_color.g * dot_product(face_normal,L) + specular_color.g * std::pow(dot_product(N,(L + V/2)),shininess);
+                            diffuse_color.b * dot_product(face_normal,L) + specular_color.b * std::pow(dot_product(N,(L + V/2)),shininess);
+                        };
+                        SDL_RenderDrawPointF(renderer, x, y);
+                    }
+                }
+            }
+        }
+    }
 }
+
