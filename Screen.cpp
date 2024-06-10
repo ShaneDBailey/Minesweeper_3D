@@ -202,10 +202,10 @@ void Screen::draw_face_flat_shading(const Model& model) {
 //V vector direction from point to view source
 //n speculareExponent
 void Screen::draw_face_phong_shading(const Model& model) {
-    Vector3 light_direction{-1, 0, 1}; // Light direction vector
+    Vector3 light_direction{1, 0, -1}; // Light direction vector
     light_direction = normalize(light_direction);
 
-    Vector3 view_direction{0, 0, 1}; // Assuming the viewer is looking along the z-axis
+    Vector3 view_direction{0, 0, -1}; // Assuming the viewer is looking along the z-axis
     view_direction = normalize(view_direction);
     for (const auto& face : model.getFaces()) {
         const Vector3& v0 = model.getVertices()[face.vertexIndex[0] - 1];
@@ -214,7 +214,7 @@ void Screen::draw_face_phong_shading(const Model& model) {
 
         // Assuming the same normal for the entire face (flat shading)
         const Vector3& face_normal = model.getNormals()[face.normalIndex[0] - 1];
-
+        Vector3 N = normalize(face_normal);
         Color ambient_color = face.face_material.ambientColor;
         Color diffuse_color = face.face_material.diffuseColor;//kd
         Color specular_color = face.face_material.specularColor;//ks
@@ -234,15 +234,17 @@ void Screen::draw_face_phong_shading(const Model& model) {
                         Vector3 point = {x,y,z};
                         Vector3 L = normalize(light_direction - point);//mihgt need to make light no normalized
                         Vector3 V = normalize(view_direction - point);
-                        float NdotL = dot_product(face_normal, L);
-                        float NdotH = dot_product(face_normal, (L + V) / 2);
+                        float NdotL = dot_product(L, N);
+                        NdotL = std::max(0.0f, NdotL);  
+                        float NdotH = dot_product(N, (L + V) / 2);
+                        NdotH = std::max(0.0f, NdotH); 
                         Color Final{
-                            diffuse_color.r * NdotL + specular_color.r * std::pow(NdotH, shininess),
-                            diffuse_color.g * NdotL + specular_color.g * std::pow(NdotH, shininess),
-                            diffuse_color.b * NdotL + specular_color.b * std::pow(NdotH, shininess),
+                            std::min(1.0f,(diffuse_color.r * NdotL) + (specular_color.r * std::pow(NdotH, shininess))),
+                            std::min(1.0f,(diffuse_color.g * NdotL) + (specular_color.g * std::pow(NdotH, shininess))),
+                            std::min(1.0f,(diffuse_color.b * NdotL) + (specular_color.b * std::pow(NdotH, shininess))),
                             1.0f
                         };
-                        SDL_SetRenderDrawColor(renderer, Final.r, Final.g, Final.b, 255);
+                        SDL_SetRenderDrawColor(renderer, Final.r * 255, Final.g * 255, Final.b * 255, face.face_material.dissolveFactor*255);
                         SDL_RenderDrawPointF(renderer, x, y);
                     }
                 }
